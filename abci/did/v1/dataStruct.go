@@ -46,16 +46,19 @@ type GetNodeMasterPublicKeyResult struct {
 type User struct {
 	HashID string  `json:"hash_id"`
 	Ial    float64 `json:"ial"`
+	First  bool    `json:"first"`
 }
 
-type RegisterMsqDestinationParam struct {
-	Users  []User `json:"users"`
-	NodeID string `json:"node_id"`
+type RegisterIdentityParam struct {
+	Users []User `json:"users"`
 }
 
 type Node struct {
-	Ial    float64 `json:"ial"`
-	NodeID string  `json:"node_id"`
+	Ial          float64 `json:"ial"`
+	NodeID       string  `json:"node_id"`
+	Active       bool    `json:"active"`
+	First        bool    `json:"first"`
+	TimeoutBlock int64   `json:"timeout_block"`
 }
 
 type MsqDestination struct {
@@ -63,9 +66,10 @@ type MsqDestination struct {
 }
 
 type GetIdpNodesParam struct {
-	HashID string  `json:"hash_id"`
-	MinIal float64 `json:"min_ial"`
-	MinAal float64 `json:"min_aal"`
+	HashID     string   `json:"hash_id"`
+	MinIal     float64  `json:"min_ial"`
+	MinAal     float64  `json:"min_aal"`
+	NodeIDList []string `json:"node_id_list"`
 }
 
 type MsqDestinationNode struct {
@@ -104,13 +108,10 @@ type Request struct {
 	MinAal          float64       `json:"min_aal"`
 	MinIal          float64       `json:"min_ial"`
 	Timeout         int           `json:"request_timeout"`
+	IdPIDList       []string      `json:"idp_id_list"`
 	DataRequestList []DataRequest `json:"data_request_list"`
 	MessageHash     string        `json:"request_message_hash"`
-	Responses       []Response    `json:"response_list"`
-	IsClosed        bool          `json:"closed"`
-	IsTimedOut      bool          `json:"timed_out"`
-	CanAddAccessor  bool          `json:"can_add_accessor"`
-	Owner           string        `json:"owner"`
+	Purpose         string        `json:"purpose"`
 	Mode            int           `json:"mode"`
 }
 
@@ -124,6 +125,7 @@ type Response struct {
 	IdpID            string  `json:"idp_id"`
 	ValidProof       *bool   `json:"valid_proof"`
 	ValidIal         *bool   `json:"valid_ial"`
+	ValidSignature   *bool   `json:"valid_signature"`
 }
 
 type CreateIdpResponseParam struct {
@@ -137,7 +139,7 @@ type CreateIdpResponseParam struct {
 }
 
 type GetRequestParam struct {
-	RequestID string `json:"requestId"`
+	RequestID string `json:"request_id"`
 }
 
 type GetRequestResult struct {
@@ -148,23 +150,21 @@ type GetRequestResult struct {
 }
 
 type GetRequestDetailResult struct {
-	RequestID       string        `json:"request_id"`
-	MinIdp          int           `json:"min_idp"`
-	MinAal          float64       `json:"min_aal"`
-	MinIal          float64       `json:"min_ial"`
-	Timeout         int           `json:"request_timeout"`
-	DataRequestList []DataRequest `json:"data_request_list"`
-	MessageHash     string        `json:"request_message_hash"`
-	Responses       []Response    `json:"response_list"`
-	IsClosed        bool          `json:"closed"`
-	IsTimedOut      bool          `json:"timed_out"`
-	Special         bool          `json:"special"`
-	Mode            int           `json:"mode"`
-}
-
-type Callback struct {
-	RequestID string `json:"requestId"`
-	Height    int64  `json:"height"`
+	RequestID           string        `json:"request_id"`
+	MinIdp              int           `json:"min_idp"`
+	MinAal              float64       `json:"min_aal"`
+	MinIal              float64       `json:"min_ial"`
+	Timeout             int           `json:"request_timeout"`
+	IdPIDList           []string      `json:"idp_id_list"`
+	DataRequestList     []DataRequest `json:"data_request_list"`
+	MessageHash         string        `json:"request_message_hash"`
+	Responses           []Response    `json:"response_list"`
+	IsClosed            bool          `json:"closed"`
+	IsTimedOut          bool          `json:"timed_out"`
+	Purpose             string        `json:"purpose"`
+	Mode                int           `json:"mode"`
+	RequesterNodeID     string        `json:"requester_node_id"`
+	CreationBlockHeight int64         `json:"creation_block_height"`
 }
 
 type SignDataParam struct {
@@ -174,11 +174,13 @@ type SignDataParam struct {
 }
 
 type AddServiceParam struct {
-	ServiceID   string `json:"service_id"`
-	ServiceName string `json:"service_name"`
+	ServiceID         string `json:"service_id"`
+	ServiceName       string `json:"service_name"`
+	DataSchema        string `json:"data_schema"`
+	DataSchemaVersion string `json:"data_schema_version"`
 }
 
-type DeleteServiceParam struct {
+type DisableServiceParam struct {
 	ServiceID string `json:"service_id"`
 }
 
@@ -188,24 +190,22 @@ type RegisterServiceDestinationParam struct {
 	MinAal    float64 `json:"min_aal"`
 }
 
-type Service struct {
-	ServiceName string `json:"service_name"`
-}
-
 type GetServiceDetailParam struct {
 	ServiceID string `json:"service_id"`
 }
 
 type GetAsNodesByServiceIdParam struct {
-	ServiceID string `json:"service_id"`
+	ServiceID  string   `json:"service_id"`
+	NodeIDList []string `json:"node_id_list"`
 }
 
 type ASNode struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
+	ID        string  `json:"node_id"`
+	Name      string  `json:"node_name"`
 	MinIal    float64 `json:"min_ial"`
 	MinAal    float64 `json:"min_aal"`
 	ServiceID string  `json:"service_id"`
+	Active    bool    `json:"active"`
 }
 
 type GetAsNodesByServiceIdResult struct {
@@ -224,8 +224,9 @@ type GetAsNodesByServiceIdWithNameResult struct {
 }
 
 type InitNDIDParam struct {
-	NodeID    string `json:"node_id"`
-	PublicKey string `json:"public_key"`
+	NodeID          string `json:"node_id"`
+	PublicKey       string `json:"public_key"`
+	MasterPublicKey string `json:"master_public_key"`
 }
 
 type TransferNDIDParam struct {
@@ -246,6 +247,8 @@ type NodeDetail struct {
 	PublicKey       string `json:"public_key"`
 	MasterPublicKey string `json:"master_public_key"`
 	NodeName        string `json:"node_name"`
+	Role            string `json:"role"`
+	Active          bool   `json:"active"`
 }
 
 type MaxIalAal struct {
@@ -253,13 +256,11 @@ type MaxIalAal struct {
 	MaxAal float64 `json:"max_aal"`
 }
 
-type RegisterMsqAddressParam struct {
-	NodeID string `json:"node_id"`
-	IP     string `json:"ip"`
-	Port   int64  `json:"port"`
+type SetMqAddressesParam struct {
+	Addresses []MsqAddress `json:"addresses"`
 }
 
-type GetMsqAddressParam struct {
+type GetMqAddressesParam struct {
 	NodeID string `json:"node_id"`
 }
 
@@ -315,15 +316,16 @@ type GetUsedTokenReportParam struct {
 }
 
 type RequestIDParam struct {
-	RequestID string `json:"requestId"`
+	RequestID string `json:"request_id"`
 }
 
 type Namespace struct {
 	Namespace   string `json:"namespace"`
 	Description string `json:"description"`
+	Active      bool   `json:"active"`
 }
 
-type DeleteNamespaceParam struct {
+type DisableNamespaceParam struct {
 	Namespace string `json:"namespace"`
 }
 
@@ -332,7 +334,7 @@ type UpdateNodeParam struct {
 	MasterPublicKey string `json:"master_public_key"`
 }
 
-type CreateIdentityParam struct {
+type RegisterAccessorParam struct {
 	AccessorID        string `json:"accessor_id"`
 	AccessorType      string `json:"accessor_type"`
 	AccessorPublicKey string `json:"accessor_public_key"`
@@ -343,6 +345,8 @@ type Accessor struct {
 	AccessorType      string `json:"accessor_type"`
 	AccessorPublicKey string `json:"accessor_public_key"`
 	AccessorGroupID   string `json:"accessor_group_id"`
+	Active            bool   `json:"active"`
+	Owner             string `json:"owner"`
 }
 
 type AccessorMethod struct {
@@ -375,6 +379,7 @@ type GetAccessorKeyParam struct {
 
 type GetAccessorKeyResult struct {
 	AccessorPublicKey string `json:"accessor_public_key"`
+	Active            bool   `json:"active"`
 }
 
 type SetValidatorParam struct {
@@ -383,19 +388,18 @@ type SetValidatorParam struct {
 }
 
 type SetDataReceivedParam struct {
-	RequestID string `json:"requestId"`
+	RequestID string `json:"request_id"`
 	ServiceID string `json:"service_id"`
 	AsID      string `json:"as_id"`
 }
 
 type ServiceDetail struct {
-	ServiceID   string `json:"service_id"`
-	ServiceName string `json:"service_name"`
+	ServiceID         string `json:"service_id"`
+	ServiceName       string `json:"service_name"`
+	DataSchema        string `json:"data_schema"`
+	DataSchemaVersion string `json:"data_schema_version"`
+	Active            bool   `json:"active"`
 }
-
-// type GetNodeInfoResult struct {
-// 	Version string `json:"version"`
-// }
 
 type CheckExistingAccessorIDParam struct {
 	AccessorID string `json:"accessor_id"`
@@ -414,12 +418,21 @@ type GetNodeInfoParam struct {
 }
 
 type GetNodeInfoResult struct {
-	PublicKey       string  `json:"public_key"`
-	MasterPublicKey string  `json:"master_public_key"`
-	NodeName        string  `json:"node_name"`
-	Role            string  `json:"role"`
-	MaxIal          float64 `json:"max_ial"`
-	MaxAal          float64 `json:"max_aal"`
+	PublicKey       string       `json:"public_key"`
+	MasterPublicKey string       `json:"master_public_key"`
+	NodeName        string       `json:"node_name"`
+	Role            string       `json:"role"`
+	Mq              []MsqAddress `json:"mq"`
+}
+
+type GetNodeInfoIdPResult struct {
+	PublicKey       string       `json:"public_key"`
+	MasterPublicKey string       `json:"master_public_key"`
+	NodeName        string       `json:"node_name"`
+	Role            string       `json:"role"`
+	MaxIal          float64      `json:"max_ial"`
+	MaxAal          float64      `json:"max_aal"`
+	Mq              []MsqAddress `json:"mq"`
 }
 
 type GetIdentityInfoParam struct {
@@ -432,9 +445,10 @@ type GetIdentityInfoResult struct {
 }
 
 type UpdateNodeByNDIDParam struct {
-	NodeID string  `json:"node_id"`
-	MaxIal float64 `json:"max_ial"`
-	MaxAal float64 `json:"max_aal"`
+	NodeID   string  `json:"node_id"`
+	MaxIal   float64 `json:"max_ial"`
+	MaxAal   float64 `json:"max_aal"`
+	NodeName string  `json:"node_name"`
 }
 
 type UpdateIdentityParam struct {
@@ -443,19 +457,20 @@ type UpdateIdentityParam struct {
 }
 
 type CloseRequestParam struct {
-	RequestID         string          `json:"requestId"`
+	RequestID         string          `json:"request_id"`
 	ResponseValidList []ResponseValid `json:"response_valid_list"`
 }
 
 type TimeOutRequestParam struct {
-	RequestID         string          `json:"requestId"`
+	RequestID         string          `json:"request_id"`
 	ResponseValidList []ResponseValid `json:"response_valid_list"`
 }
 
 type ResponseValid struct {
-	IdpID      string `json:"idp_id"`
-	ValidProof bool   `json:"valid_proof"`
-	ValidIal   bool   `json:"valid_ial"`
+	IdpID          string `json:"idp_id"`
+	ValidProof     *bool  `json:"valid_proof"`
+	ValidIal       *bool  `json:"valid_ial"`
+	ValidSignature *bool  `json:"valid_signature"`
 }
 
 type GetDataSignatureParam struct {
@@ -489,6 +504,218 @@ type UpdateServiceDestinationParam struct {
 }
 
 type UpdateServiceParam struct {
-	ServiceID   string `json:"service_id"`
-	ServiceName string `json:"service_name"`
+	ServiceID         string `json:"service_id"`
+	ServiceName       string `json:"service_name"`
+	DataSchema        string `json:"data_schema"`
+	DataSchemaVersion string `json:"data_schema_version"`
+}
+
+type DisableMsqDestinationParam struct {
+	HashID string `json:"hash_id"`
+}
+
+type DisableAccessorMethodParam struct {
+	AccessorID string `json:"accessor_id"`
+}
+
+type RegisterServiceDestinationByNDIDParam struct {
+	ServiceID string `json:"service_id"`
+	NodeID    string `json:"node_id"`
+}
+
+type DisableNodeParam struct {
+	NodeID string `json:"node_id"`
+}
+
+type Service struct {
+	ServiceID string  `json:"service_id"`
+	MinIal    float64 `json:"min_ial"`
+	MinAal    float64 `json:"min_aal"`
+	Active    bool    `json:"active"`
+	Suspended bool    `json:"suspended"`
+}
+
+type GetServicesByAsIDParam struct {
+	AsID string `json:"as_id"`
+}
+
+type GetServicesByAsIDResult struct {
+	Services []Service `json:"services"`
+}
+
+type DisableServiceDestinationByNDIDParam struct {
+	ServiceID string `json:"service_id"`
+	NodeID    string `json:"node_id"`
+}
+
+type ApproveService struct {
+	Active bool `json:"active"`
+}
+
+type DisableServiceDestinationParam struct {
+	ServiceID string `json:"service_id"`
+}
+
+type ClearRegisterIdentityTimeoutParam struct {
+	HashID string `json:"hash_id"`
+}
+
+type TimeOutBlockRegisterIdentity struct {
+	TimeOutBlock int64 `json:"time_out_block"`
+}
+
+type GetIdpNodesInfoResult struct {
+	Node []interface{} `json:"node"`
+}
+
+type IdpNode struct {
+	NodeID    string       `json:"node_id"`
+	Name      string       `json:"name"`
+	MaxIal    float64      `json:"max_ial"`
+	MaxAal    float64      `json:"max_aal"`
+	PublicKey string       `json:"public_key"`
+	Mq        []MsqAddress `json:"mq"`
+}
+
+type ASWithMqNode struct {
+	ID        string       `json:"node_id"`
+	Name      string       `json:"name"`
+	MinIal    float64      `json:"min_ial"`
+	MinAal    float64      `json:"min_aal"`
+	PublicKey string       `json:"public_key"`
+	Mq        []MsqAddress `json:"mq"`
+}
+
+type GetAsNodesInfoByServiceIdResult struct {
+	Node []interface{} `json:"node"`
+}
+
+type AddNodeToProxyNodeParam struct {
+	NodeID      string `json:"node_id"`
+	ProxyNodeID string `json:"proxy_node_id"`
+	Config      string `json:"config"`
+}
+
+type GetNodeInfoResultRPandASBehindProxy struct {
+	PublicKey       string `json:"public_key"`
+	MasterPublicKey string `json:"master_public_key"`
+	NodeName        string `json:"node_name"`
+	Role            string `json:"role"`
+	Proxy           struct {
+		NodeID          string       `json:"node_id"`
+		NodeName        string       `json:"node_name"`
+		PublicKey       string       `json:"public_key"`
+		MasterPublicKey string       `json:"master_public_key"`
+		Mq              []MsqAddress `json:"mq"`
+		Config          string       `json:"config"`
+	} `json:"proxy"`
+}
+
+type GetNodeInfoResultIdPandASBehindProxy struct {
+	PublicKey       string  `json:"public_key"`
+	MasterPublicKey string  `json:"master_public_key"`
+	NodeName        string  `json:"node_name"`
+	Role            string  `json:"role"`
+	MaxIal          float64 `json:"max_ial"`
+	MaxAal          float64 `json:"max_aal"`
+	Proxy           struct {
+		NodeID          string       `json:"node_id"`
+		NodeName        string       `json:"node_name"`
+		PublicKey       string       `json:"public_key"`
+		MasterPublicKey string       `json:"master_public_key"`
+		Mq              []MsqAddress `json:"mq"`
+		Config          string       `json:"config"`
+	} `json:"proxy"`
+}
+
+type UpdateNodeProxyNodeParam struct {
+	NodeID      string `json:"node_id"`
+	ProxyNodeID string `json:"proxy_node_id"`
+	Config      string `json:"config"`
+}
+
+type RemoveNodeFromProxyNode struct {
+	NodeID string `json:"node_id"`
+}
+
+type IdpNodeBehindProxy struct {
+	NodeID    string  `json:"node_id"`
+	Name      string  `json:"name"`
+	MaxIal    float64 `json:"max_ial"`
+	MaxAal    float64 `json:"max_aal"`
+	PublicKey string  `json:"public_key"`
+	Proxy     struct {
+		NodeID    string       `json:"node_id"`
+		PublicKey string       `json:"public_key"`
+		Mq        []MsqAddress `json:"mq"`
+		Config    string       `json:"config"`
+	} `json:"proxy"`
+}
+
+type ASWithMqNodeBehindProxy struct {
+	NodeID    string  `json:"node_id"`
+	Name      string  `json:"name"`
+	MinIal    float64 `json:"min_ial"`
+	MinAal    float64 `json:"min_aal"`
+	PublicKey string  `json:"public_key"`
+	Proxy     struct {
+		NodeID    string       `json:"node_id"`
+		PublicKey string       `json:"public_key"`
+		Mq        []MsqAddress `json:"mq"`
+		Config    string       `json:"config"`
+	} `json:"proxy"`
+}
+
+type GetNodesBehindProxyNodeParam struct {
+	ProxyNodeID string `json:"proxy_node_id"`
+}
+
+type GetNodesBehindProxyNodeResult struct {
+	Nodes []interface{} `json:"nodes"`
+}
+
+type IdPBehindProxy struct {
+	NodeID          string  `json:"node_id"`
+	NodeName        string  `json:"node_name"`
+	Role            string  `json:"role"`
+	PublicKey       string  `json:"public_key"`
+	MasterPublicKey string  `json:"master_public_key"`
+	MaxIal          float64 `json:"max_ial"`
+	MaxAal          float64 `json:"max_aal"`
+	Config          string  `json:"config"`
+}
+
+type ASorRPBehindProxy struct {
+	NodeID          string `json:"node_id"`
+	NodeName        string `json:"node_name"`
+	Role            string `json:"role"`
+	PublicKey       string `json:"public_key"`
+	MasterPublicKey string `json:"master_public_key"`
+	Config          string `json:"config"`
+}
+
+type Proxy struct {
+	ProxyNodeID string `json:"proxy_node_id"`
+	Config      string `json:"config"`
+}
+
+type GetUsedTokenReportResult []Report
+
+type GetNodeIDListParam struct {
+	Role string `json:"role"`
+}
+
+type GetNodeIDListResult struct {
+	NodeIDList []string `json:"node_id_list"`
+}
+
+type GetMqAddressesResult []MsqAddress
+
+type GetAccessorsInAccessorGroupParam struct {
+	AccessorGroupID string `json:"accessor_group_id"`
+	IdpID           string `json:"idp_id"`
+}
+
+type GetAccessorsInAccessorGroupResult struct {
+	AccessorList []string `json:"accessor_list"`
 }

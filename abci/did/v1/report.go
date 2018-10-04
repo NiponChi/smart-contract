@@ -25,33 +25,34 @@ package did
 import (
 	"encoding/json"
 
-	"github.com/tendermint/abci/types"
+	"github.com/gogo/protobuf/proto"
+	pbData "github.com/ndidplatform/smart-contract/protos/data"
+	"github.com/tendermint/tendermint/abci/types"
 )
 
 func writeBurnTokenReport(nodeID string, method string, price float64, data string, app *DIDApplication) error {
 	key := "SpendGas" + "|" + nodeID
 	_, chkExists := app.state.db.Get(prefixKey([]byte(key)))
-	newReport := Report{
-		method,
-		price,
-		data,
-	}
+	var newReport pbData.Report
+	newReport.Method = method
+	newReport.Price = price
+	newReport.Data = data
 	if chkExists != nil {
-		var reports []Report
-		err := json.Unmarshal([]byte(chkExists), &reports)
+		var reports pbData.ReportList
+		err := proto.Unmarshal([]byte(chkExists), &reports)
 		if err != nil {
 			return err
 		}
-		reports = append(reports, newReport)
-		value, err := json.Marshal(reports)
+		reports.Reports = append(reports.Reports, &newReport)
+		value, err := proto.Marshal(&reports)
 		if err != nil {
 			return err
 		}
 		app.SetStateDB([]byte(key), []byte(value))
 	} else {
-		var reports []Report
-		reports = append(reports, newReport)
-		value, err := json.Marshal(reports)
+		var reports pbData.ReportList
+		reports.Reports = append(reports.Reports, &newReport)
+		value, err := proto.Marshal(&reports)
 		if err != nil {
 			return err
 		}
@@ -60,18 +61,35 @@ func writeBurnTokenReport(nodeID string, method string, price float64, data stri
 	return nil
 }
 
-func getUsedTokenReport(param string, app *DIDApplication, height int64) types.ResponseQuery {
+func (app *DIDApplication) getUsedTokenReport(param string, height int64) types.ResponseQuery {
 	app.logger.Infof("GetUsedTokenReport, Parameter: %s", param)
 	var funcParam GetUsedTokenReportParam
 	err := json.Unmarshal([]byte(param), &funcParam)
 	if err != nil {
-		return ReturnQuery(nil, err.Error(), app.state.Height, app)
+		return app.ReturnQuery(nil, err.Error(), app.state.db.Version64())
 	}
 	key := "SpendGas" + "|" + funcParam.NodeID
 	_, value := app.state.db.GetVersioned(prefixKey([]byte(key)), height)
 	if value == nil {
-		value = []byte("")
-		return ReturnQuery(value, "not found", app.state.Height, app)
+		value = []byte("[]")
+		return app.ReturnQuery(value, "not found", app.state.db.Version64())
 	}
-	return ReturnQuery(value, "success", app.state.Height, app)
+	var result GetUsedTokenReportResult
+	var reports pbData.ReportList
+	err = proto.Unmarshal([]byte(value), &reports)
+	if err != nil {
+		return app.ReturnQuery(nil, err.Error(), app.state.db.Version64())
+	}
+	for _, report := range reports.Reports {
+		var newRow Report
+		newRow.Method = report.Method
+		newRow.Price = float64(report.Price)
+		newRow.Data = report.Data
+		result = append(result, newRow)
+	}
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return app.ReturnQuery(nil, err.Error(), app.state.db.Version64())
+	}
+	return app.ReturnQuery(resultJSON, "success", app.state.db.Version64())
 }
